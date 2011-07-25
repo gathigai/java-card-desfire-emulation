@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="lib" path="C:/Documents and Settings/WinXp/Escritorio/PFC/Eclipse/Workspace/eid-quick-key-toolset/eid-applet/src/main/java/org"/>
+	<classpathentry kind="lib" path="C:/Java2/bcprov-ext-jdk16-146.jar"/>
+	<classpathentry kind="lib" path="C:/Java2/java_card_kit-2_2_1/lib/api.jar">
+		<attributes>
+			<attribute name="javadoc_location" value="file:/C:/Java2/java_card_kit-2_2_2/doc/en/api/html/"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="output" path="bin"/>
+</classpath>
