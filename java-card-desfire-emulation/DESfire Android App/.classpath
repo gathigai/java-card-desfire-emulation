@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="src" path="gen">
+		<attributes>
+			<attribute name="org.eclipse.jdt.launching.CLASSPATH_ATTR_LIBRARY_PATH_ENTRY" value="DESfire Tester/src"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Documents and Settings/WinXp/Escritorio/PFC/eid-toolset-package/eid-toolset-gui-1.0-SNAPSHOT.jar"/>
+	<classpathentry kind="con" path="com.android.ide.eclipse.adt.ANDROID_FRAMEWORK"/>
+	<classpathentry kind="lib" path="C:/Java2/Android Smart Card/android.smartcard.jar">
+		<attributes>
+			<attribute name="javadoc_location" value="file:/C:/Java2/Android Smart Card/api/"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Java2/bcprov-ext-jdk16-146.jar"/>
+	<classpathentry kind="lib" path="C:/Documents and Settings/WinXp/Escritorio/libs/commons-httpclient-3.1/commons-httpclient-3.1.jar"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>
