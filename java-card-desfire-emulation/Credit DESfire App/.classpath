@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.6">
+		<accessrules>
+			<accessrule kind="accessible" pattern="javax/smartcardio/*"/>
+		</accessrules>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Documents and Settings/WinXp/Escritorio/PFC/eid-toolset-package/eid-toolset-gui-1.0-SNAPSHOT.jar"/>
+	<classpathentry kind="lib" path="/EidForAndroid/bin"/>
+	<classpathentry kind="lib" path="C:/Java2/bcprov-ext-jdk16-146.jar"/>
+	<classpathentry kind="lib" path="C:/Java2/android-sdk-windows/platforms/android-4/android.jar">
+		<attributes>
+			<attribute name="javadoc_location" value="file:/C:/Java2/android-sdk-windows/docs/reference"/>
+		</attributes>
+		<accessrules>
+			<accessrule kind="nonaccessible" pattern="com/android/internal/**"/>
+		</accessrules>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Documents and Settings/WinXp/Escritorio/libs/httpcomponents-client-4.1.1/lib/httpmime-4.1.1.jar"/>
+	<classpathentry kind="lib" path="C:/Documents and Settings/WinXp/Escritorio/libs/httpcomponents-client-4.1.1/lib/commons-codec-1.4.jar"/>
+	<classpathentry kind="lib" path="C:/Documents and Settings/WinXp/Escritorio/libs/httpcomponents-client-4.1.1/lib/commons-logging-1.1.1.jar"/>
+	<classpathentry kind="lib" path="C:/Documents and Settings/WinXp/Escritorio/libs/httpcomponents-client-4.1.1/lib/httpclient-4.1.1.jar"/>
+	<classpathentry kind="lib" path="C:/Documents and Settings/WinXp/Escritorio/libs/httpcomponents-client-4.1.1/lib/httpclient-cache-4.1.1.jar"/>
+	<classpathentry kind="lib" path="C:/Documents and Settings/WinXp/Escritorio/libs/httpcomponents-client-4.1.1/lib/httpcore-4.1.jar"/>
+	<classpathentry kind="lib" path="C:/Documents and Settings/WinXp/Escritorio/libs/commons-httpclient-3.1/commons-httpclient-3.1.jar"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>
