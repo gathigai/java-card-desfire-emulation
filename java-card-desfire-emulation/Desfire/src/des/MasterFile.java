@@ -80,6 +80,25 @@ public class MasterFile extends DirectoryFile {
 		if((configuration &(byte)0x02) ==(byte)0x02) randomID=false;
 		else randomID=true;	
 	}
+	
+	/**
+	 * Checks if the key number is 0 since there is only the Master Key 
+	 * in the card level
+	 */
+	public boolean isValidKeyNumber(byte keyNumber){
+			if (keyNumber==0)return true;
+			else return false;
+	}
+	
+	/**
+	 * Checks if this Directory File is the Master File
+	 * 
+	 * 	@return	 True because this is the Master File
+	 */
+	public boolean isMasterFile(){
+		return true;
+	}
+	
 	public boolean isFormatEnabled(){
 		return (formatEnabled==true);
 	}

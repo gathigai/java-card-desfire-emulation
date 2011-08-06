@@ -49,6 +49,7 @@ public class DirectoryFile extends File {
 		newKey.clearKey();
 		newKey.setKey(Util.DEFAULT_MASTER_KEY, (byte)0);
 		masterKey=newKey;
+		maxKeyNumber=-1;
 		
 	}
 	
@@ -229,13 +230,16 @@ public class DirectoryFile extends File {
 	 * @return True if this DF is the Master File
 	 */
 	public boolean isMasterFile(){
-		return getFileID()==(byte)0x00;
+		return false;
 	}
 
+	/**
+	 * Checks if the key exists or not
+	 * 	 */
 	public boolean isValidKeyNumber(byte keyNumber) {
+		
 		if(keyNumber>=maxKeyNumber) return false;//No Such Key
 		else if(keyList[keyNumber]==null) return false;//No Such Key
-		return true;
-		
+		return true;		
 	}
 }
