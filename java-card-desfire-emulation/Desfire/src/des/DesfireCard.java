@@ -1227,54 +1227,28 @@ public class DesfireCard extends javacard.framework.Applet  implements MultiSele
 		}
 		return;	
 
-//		// construct the reply APDU
-////		short le = apdu.setOutgoing();
-//		apdu.setOutgoing();
-//		// if (le < (short)2) ISOException.throwIt( ISO7816.SW_WRONG_LENGTH );
-//		if(response.length==0)ISOException.throwIt( (short)0x917E);//AUX
-////			this.securityLevel=Util.PLAIN_COMMUNICATION;
-//		// build response data in apdu.buffer[ 0.. outCount-1 ];
-//		switch (this.securityLevel) {
-//		case Util.PLAIN_COMMUNICATION:
-//			break;
-//		case Util.PLAIN_COMMUNICATION_MAC:		
-//			break;
-//		case Util.FULLY_ENCRYPTED:
-//			response=encrypt16(response,sessionKey);
-//			break;
-//		default:
-//			break;
-//		}
-//		
-//		try{
-//		
-//		apdu.setOutgoingLength( (short) (response.length) );
-//		for (byte i = 0; i < response.length; i++) {
-//			buffer[i]=response[i];
-//		}
-//		apdu.sendBytes ((short)0 , (short)(response.length) );
-//		}catch (APDUException e) {
-//			ISOException.throwIt(e.getReason());
-//		}
-//		return;
-		}
+	}
 	
+	/**
+	 * 	Initialize the applet when it is selected, select always 
+	 * 	has to happen after a reset
+	 */
 	public boolean select(boolean appInstAlreadyActive){
 		clear();
 		return true;
 	}
+	
+	/**
+	 * 	Perform any cleanup tasks before the applet is deselected
+	 */
 	public void deselect(boolean appInstStillActive){
 		clear();
 		return;
 	}
-	public Key getCurrentKey(){
-		if(selectedDF.isMasterFile()==true)return selectedDF.getMasterKey();
-		else if(authenticated>0)return selectedDF.getKey(authenticated);
-		else {
-			ISOException.throwIt(ISO7816.SW_SECURITY_STATUS_NOT_SATISFIED);
-			return null;
-		}
-	}
+	
+	/**
+	 * 	Perform any cleanup tasks and set the PICC level
+	 */
 	private void clear(){
 		selectedFile=null;
 		selectedDF=masterFile;
