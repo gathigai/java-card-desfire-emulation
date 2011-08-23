@@ -298,4 +298,20 @@ public class Util {
 		}
 		return true;
 	}
+	
+	public static byte[] getZeroArray(short length){
+		byte[] zeroArray=new byte[length];
+		for (int i = 0; i < zeroArray.length; i++) {
+			zeroArray[i]=0;	
+		}
+		return zeroArray;
+	}
+	
+	public static byte[] xorByteArray(byte[]a,byte[]b){
+		byte[] result=new byte[a.length];
+		for (byte i = 0; i < a.length; i++) {
+			result[i]=(byte)(a[i]^b[i]);
+		}
+		return result;
+	}
 }

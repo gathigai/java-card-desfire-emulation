@@ -1,5 +1,7 @@
 package des;
 
+import org.bouncycastle.jce.interfaces.ConfigurableProvider;
+
 import javacard.framework.*;
 import javacard.framework.service.BasicService;
 import javacard.security.CryptoException;
@@ -7,8 +9,17 @@ import javacard.security.DESKey;
 import javacard.security.Key;
 import javacard.security.KeyBuilder;
 import javacard.security.RandomData;
+import javacard.security.SecretKey;
 import javacardx.crypto.Cipher;
 
+/**
+ * 	DESfire Card operating system's emulation. This class installs the applet
+ * 	in the card and runs the OS reading APDU's and calling the required functions
+ * 	depending on the INS field
+ * 
+ * 	@author WinXp
+ *
+ */
 public class DesfireCard extends javacard.framework.Applet  implements MultiSelectable{
 	
 	/**
@@ -63,11 +74,16 @@ public class DesfireCard extends javacard.framework.Applet  implements MultiSele
 	byte[] randomNumberToAuthenticate;
 	BasicService bs;
 	
-	
+	/**
+	 * Sets if the messages are sent plain, with MAC or enciphered.
+	 */
 	byte securityLevel;
 	
+	/**
+	 * Current session key
+	 */
 	Key sessionKey;
-//	byte[] sessionKeyBytes;//
+
 	
    /**
 	 * called by the JCRE to create an applet instance
@@ -240,6 +256,8 @@ public class DesfireCard extends javacard.framework.Applet  implements MultiSele
 		receiveAPDU(apdu, buffer);
 		if(commandToContinue==Util.NO_COMMAND_TO_CONTINUE){
 			//FIRST MESSAGE
+			
+			if((byte)(buffer[ISO7816.OFFSET_LC])!=1)ISOException.throwIt(Util.LENGTH_ERROR);
 			// RndB is generated			
 			keyNumberToAuthenticate=buffer[ISO7816.OFFSET_CDATA];
 			if(!selectedDF.isValidKeyNumber(keyNumberToAuthenticate))ISOException.throwIt(Util.NO_SUCH_KEY);
@@ -257,6 +275,7 @@ public class DesfireCard extends javacard.framework.Applet  implements MultiSele
 		}
 		else{
 			//SECCOND MESSAGE 
+			if((byte)(buffer[ISO7816.OFFSET_LC])!=16)ISOException.throwIt(Util.LENGTH_ERROR);
 			commandToContinue=Util.NO_COMMAND_TO_CONTINUE;
 			byte[] encryptedRndA=new byte[8];
 			byte[] encryptedRndArndB=new byte[16];
@@ -296,12 +315,14 @@ public class DesfireCard extends javacard.framework.Applet  implements MultiSele
 	/**
 	 * Changes the master key settings on PICC and application level
 	 * 
-	 * 	@note	||Ciphered Key Settings||	
+	 * 	@note	||Ciphered Key Settings||
+	 * 				8/16	
 	 */
 	private void changeKeySettings(APDU apdu, byte[] buffer){
 		receiveAPDU(apdu, buffer);
-		//Hay que descifrar el campo de datos
+		//Hay que descifrar el campo de datos igual que con changeKey (no sé como)
 		//FALTA
+		if(((byte)(buffer[ISO7816.OFFSET_LC])!=8)&&((byte)(buffer[ISO7816.OFFSET_LC])!=16))ISOException.throwIt(Util.LENGTH_ERROR);
 		byte keySettings=buffer[ISO7816.OFFSET_CDATA];
 		if(!selectedDF.hasKeySettingsChangeAllowed(authenticated))ISOException.throwIt(Util.PERMISSION_DENIED);
 		if(selectedDF.getFileID()==(byte)0x00){
@@ -318,22 +339,22 @@ public class DesfireCard extends javacard.framework.Applet  implements MultiSele
 	/**
 	 * Changes any key stored on the PICC
 	 * 
-	 * @note ||Key number | Ciphered Key Data||	
-	 */
+	 * @note ||Key number | Ciphered Key Data||
+	 * 				1			24-40	
+	 */	
 	private void changeKey(APDU apdu, byte[] buffer){
 		receiveAPDU(apdu, buffer);
-		byte keyN=buffer[ISO7816.OFFSET_CDATA];
 		
+		if(((byte)(buffer[ISO7816.OFFSET_LC])<25)&&((byte)(buffer[ISO7816.OFFSET_LC])>41))ISOException.throwIt(Util.LENGTH_ERROR);
+		byte keyN=buffer[ISO7816.OFFSET_CDATA];
+		if(selectedDF.isValidKeyNumber(keyN)==false)ISOException.throwIt(Util.NO_SUCH_KEY);
 		if(selectedDF.hasChangeAccess(authenticated,keyN)==false)ISOException.throwIt(Util.PERMISSION_DENIED);
-		//El resto del contenido viene cifrado y hay un cifrado particular para ciertos casos
-		//FALTA
-		byte[] newKey = new byte[(byte)(buffer[ISO7816.OFFSET_LC]-1)];
-		for (byte i = 0; i < newKey.length; i++) {
-			newKey[i]=buffer[(byte)(ISO7816.OFFSET_CDATA+i+1)];		
+		
+		byte[] encipheredKeyData = new byte[(byte)(buffer[ISO7816.OFFSET_LC]-1)];
+		for (byte i = 0; i < encipheredKeyData.length; i++) {
+			encipheredKeyData[i]=buffer[(byte)(ISO7816.OFFSET_CDATA+i+1)];		
 		}
-		cipher.init(selectedDF.getKey(keyNumberToAuthenticate), Cipher.MODE_DECRYPT);
-		byte[] newKeyDecrypted=new byte[newKey.length];
-		cipher.doFinal(newKey,(short) 0, (short)16, newKeyDecrypted,(short) 0);
+		byte[] newKeyDecrypted=decryptEncipheredKeyData(encipheredKeyData, keyN);
 		
 		if(selectedDF.isMasterFile()){
 			if(authenticated==keyN)authenticated=Util.NO_KEY_AUTHENTICATED;
@@ -351,15 +372,21 @@ public class DesfireCard extends javacard.framework.Applet  implements MultiSele
 	/**
 	 * Creates a new oplication on the PICC
 	 * 
-	 * 	@note	|| AID | KeySettings1 | KeySettings2 | ISOFileID | DF_FILE || 
+	 * 	@note	|| AID | KeySettings1 | KeySettings2 | ISOFileID* | DF_FILE* ||
+	 * 				3		   1			  1             2		1-16	 
 	 */
 	private void createApplication(APDU apdu, byte[] buffer){
 		
 		receiveAPDU(apdu, buffer);
+		if(((byte)(buffer[ISO7816.OFFSET_LC])<5)&&((byte)(buffer[ISO7816.OFFSET_LC])>23))ISOException.throwIt(Util.LENGTH_ERROR);
+		
 		if(masterFile.hasManageRights(authenticated)==false)ISOException.throwIt(Util.PERMISSION_DENIED);
 		if(masterFile.getIndexDF().hasWriteAccess((byte)0)==false) ISOException.throwIt(Util.PERMISSION_DENIED);//CREO QUE SOBRA
 		byte[] AID = {buffer[ISO7816.OFFSET_CDATA],buffer[ISO7816.OFFSET_CDATA+1],buffer[ISO7816.OFFSET_CDATA+2]};
 		byte[] keySettings={buffer[ISO7816.OFFSET_CDATA+3],buffer[ISO7816.OFFSET_CDATA+4]};
+		
+		//Añadir el ISOFileID y el DF-Name  para compatibiliadad con 7816
+		//FALTA
 		masterFile.addDF(AID,keySettings);
 		ISOException.throwIt(Util.OPERATION_OK);
 	}
@@ -370,12 +397,17 @@ public class DesfireCard extends javacard.framework.Applet  implements MultiSele
 	 * 	@effect If the application that is going to be removed is the currently selected
 	 * 			the PICC level is set
 	 * 	@note	|| AID ||
+	 * 				3
 	 */
 	private void deleteApplication(APDU apdu, byte[] buffer){
 		
 		receiveAPDU(apdu, buffer);
+		if(((byte)(buffer[ISO7816.OFFSET_LC])!=3))ISOException.throwIt(Util.LENGTH_ERROR);
 		byte[] AID= {buffer[ISO7816.OFFSET_CDATA],buffer[ISO7816.OFFSET_CDATA+1],buffer[ISO7816.OFFSET_CDATA+2]};
+		if(masterFile.searchAID(AID)==-1)ISOException.throwIt(Util.APPLICATION_NOT_FOUND);
 		if(masterFile.hasManageRights(authenticated)==false)ISOException.throwIt(Util.PERMISSION_DENIED);
+		
+		//If the application that is going to be removed is the currently selected the PICC level is set
 		if(selectedDF.getFileID()==masterFile.searchAID(AID))selectedDF=masterFile;
 		masterFile.deleteDF(AID);
 		if(selectedDF.isMasterFile())selectedDF=masterFile;
@@ -388,6 +420,8 @@ public class DesfireCard extends javacard.framework.Applet  implements MultiSele
 	 * 			work in two parts. 
 	 */
 	private void getApplicationIDs(APDU apdu, byte[] buffer){
+		receiveAPDU(apdu, buffer);
+		if((byte)buffer[ISO7816.OFFSET_LC]!=0)ISOException.throwIt(Util.LENGTH_ERROR);
 		 byte[] response;
 		 byte numApp=(byte)(masterFile.numApp-1);//-1 because the IndexFile won't be included
 		if(commandToContinue==Util.NO_COMMAND_TO_CONTINUE){
@@ -429,10 +463,12 @@ public class DesfireCard extends javacard.framework.Applet  implements MultiSele
 	}
 	
 	/**
-	 *	Gets information on the PICC and application master key settings.
+	 *	Get information on the PICC and application master key settings.
 	 * 	In addition it returns the maximum number of keys which are configured for the selected application. 
 	 */
 	private void getKeySettings(APDU apdu, byte[] buffer){
+		receiveAPDU(apdu, buffer);
+		if((byte)buffer[ISO7816.OFFSET_LC]!=0)ISOException.throwIt(Util.LENGTH_ERROR);
 		if(!selectedDF.hasGetRights(authenticated))ISOException.throwIt(Util.PERMISSION_DENIED);
 		byte ks=selectedDF.getKeySettings();
 		byte kn=selectedDF.getKeyNumber();
@@ -449,20 +485,18 @@ public class DesfireCard extends javacard.framework.Applet  implements MultiSele
 	 */
 	private void selectApplication(APDU apdu, byte[] buffer){
 		receiveAPDU(apdu, buffer);
-		if(masterFile.getIndexDF().hasReadAccess((byte)0)==false) ISOException.throwIt(Util.PERMISSION_DENIED);
+		if((byte)buffer[ISO7816.OFFSET_LC]!=3)ISOException.throwIt(Util.LENGTH_ERROR);
 		//AID
 		byte[] AID = {buffer[ISO7816.OFFSET_CDATA],buffer[ISO7816.OFFSET_CDATA+1],buffer[ISO7816.OFFSET_CDATA+2]};
 		if(javacard.framework.Util.arrayCompare(AID, (short)0, Util.masterFileAID,(short)0,(short) AID.length)== 0){
 			selectedDF=masterFile;
 		}else{
-			byte i=masterFile.searchAID(AID);
-			
+			byte i=masterFile.searchAID(AID);			
 			if(i!=(byte)-1)	selectedDF=masterFile.arrayDF[masterFile.searchAID(AID)];
-			else ISOException.throwIt(Util.APPLICATION_NOT_FOUND);//Aplication not found
+			else ISOException.throwIt(Util.APPLICATION_NOT_FOUND);
 		}
 		authenticated=Util.NO_KEY_AUTHENTICATED;
 		securityLevel=Util.PLAIN_COMMUNICATION;
-		//envía 00
 		ISOException.throwIt(Util.OPERATION_OK);
 	}
 	
@@ -474,6 +508,8 @@ public class DesfireCard extends javacard.framework.Applet  implements MultiSele
 	 * 			The PICC Master Keyand the PICC Master Key settings keep their currently set values
 	 */
 	private void formatPICC(APDU apdu,byte[] buffer){
+		receiveAPDU(apdu, buffer);
+		if((byte)buffer[ISO7816.OFFSET_LC]!=0)ISOException.throwIt(Util.LENGTH_ERROR);
 		if(selectedDF.isMasterFile()==false)ISOException.throwIt(Util.PERMISSION_DENIED);
 		if(masterFile.isFormatEnabled()==false)ISOException.throwIt(Util.PERMISSION_DENIED);
 		if(authenticated!=0)ISOException.throwIt(Util.PERMISSION_DENIED);
@@ -484,32 +520,37 @@ public class DesfireCard extends javacard.framework.Applet  implements MultiSele
 	
 	/**
 	 * Configures the card and pre personalizes the card with a key, defines if the UID or the 
-	 * random ID is sent back during communication setup and configures the ATS string.
+	 * random ID is sent back during communication setup and configures the ATS string
 	 * 
-	 * 	@note	|| Option | ciphered( data || CRC )||
+	 * 	@exception	Master key authentication on card level needs to be performed elsewise 
+	 * 				throw PERMISSION_DENIED 
+	 * 	@note		|| Option | ciphered( data || CRC )||
 	 */
 	private void setConfiguration(APDU apdu, byte[] buffer){
 		receiveAPDU(apdu, buffer);
-		//Autentificacion con MK requerida
-		//FALTA
+		if(((byte)buffer[ISO7816.OFFSET_LC]<9)&&((byte)buffer[ISO7816.OFFSET_LC]>33))ISOException.throwIt(Util.LENGTH_ERROR);
+		if((selectedDF.isMasterFile()!=true)||(this.authenticated!=0)) ISOException.throwIt(Util.PERMISSION_DENIED);
+		
+		//Gets the data
 		byte encData[]=new byte[(byte)(buffer[ISO7816.OFFSET_LC]-1)];
 		for (byte i = 0; i < encData.length; i++) {
 			encData[i]=buffer[(byte)(i+ISO7816.OFFSET_CDATA+1)];
 		}
-		//Hay que descifrar esto
-		//FALTA
-		byte[] data =new byte[encData.length];//AUX
-		data=encData;//AUX
+		byte[] data =decrypt16(encData, sessionKey);
+		
+		//Checks the option
 		switch(buffer[ISO7816.OFFSET_CDATA]){
 		case (byte) 0x00: //Configuration byte
 			masterFile.setConfiguration(data[0]);
 			break;
 		case (byte) 0x01://Default key version and default key
 			byte[] keyBytes=new byte[(byte)(data.length-1)];
-			for (byte i = 0; i < keyBytes.length; i++) {
+			//PARA LOS DISTINTOS TIPOS DE CLAVES PUEDEN COGERSE 8-16-24 BYTES DESDE LA IZQUIERDA
+			//FALTA
+			for (byte i = 0; i < 8; i++) {//When the key is 3DES
 				keyBytes[i]=data[i];
 			}
-			masterFile.changeKey(masterFile.getMasterKeyType(), keyBytes);
+			masterFile.setDefaultKey(keyBytes);
 			break;
 		case (byte) 0x02://Data is the user defined ATS
 			//FALTA
@@ -524,6 +565,8 @@ public class DesfireCard extends javacard.framework.Applet  implements MultiSele
 	 * Returns the File Identifiers of all active files within the currently selected application
 	 */
 	private void getFileIDs(APDU apdu, byte[] buffer){
+		receiveAPDU(apdu, buffer);
+		if((byte)buffer[ISO7816.OFFSET_LC]!=0)ISOException.throwIt(Util.LENGTH_ERROR);
 		if(selectedDF.hasGetRights(authenticated))ISOException.throwIt(Util.PERMISSION_DENIED);
 		byte[] IDs=new byte[selectedDF.getNumberFiles()+1];
 		byte mark=0;
@@ -546,26 +589,40 @@ public class DesfireCard extends javacard.framework.Applet  implements MultiSele
 	 * 	Creates files for the storage of plain unformatted user data 
 	 * 	within an existing application on the PICC
 	 * 
-	 * 	@note	|| File Number | ISO7816 FileID | CommunicationSettings | AccessRights | FileSize(3) ||
-	 * @note	The MSB in the 3 bits values is not readed. 
-	 */
+	 * @exception	Throw PERMISION_DENIED if card level is selected or the application's configuration doesn't allow
+	 * 				manage for the current authentication state. 
+	 * @note		The MSB in the 3 bytes values is not readed.
+	 * @note		|| File Number | ISO7816 FileID* | CommunicationSettings | AccessRights | FileSize(3) ||
+	 * 				        1				2                     1                  2           3
+	 * 
+	 */	
 	private void createStdDataFile(APDU apdu, byte[] buffer){
 		receiveAPDU(apdu, buffer);
+		if(((byte)buffer[ISO7816.OFFSET_LC]!=8)&&((byte)buffer[ISO7816.OFFSET_LC]!=10))ISOException.throwIt(Util.LENGTH_ERROR);
 		if(selectedDF.isMasterFile())ISOException.throwIt(Util.PERMISSION_DENIED);
-		byte fileID=(byte)buffer[ISO7816.OFFSET_CDATA];
-		byte[] accessPermissions={(byte)buffer[ISO7816.OFFSET_CDATA+3],(byte)buffer[ISO7816.OFFSET_CDATA+2]};
-		byte[] size={(byte)buffer[ISO7816.OFFSET_CDATA+5],(byte)buffer[ISO7816.OFFSET_CDATA+4]};
+		if(selectedDF.hasManageRights(authenticated)==false)ISOException.throwIt(Util.PERMISSION_DENIED);
 		
+		byte fileID=(byte)buffer[ISO7816.OFFSET_CDATA];
+		if(selectedDF.isValidFileNumber(fileID)==false) ISOException.throwIt(Util.FILE_NOT_FOUND);
+		
+		byte communicationSettings;
+		byte[] accessPermissions;
+		byte[] size;
 		if(buffer[ISO7816.OFFSET_LC]==9){
-			accessPermissions[0]=(byte)buffer[ISO7816.OFFSET_CDATA+5];
-			accessPermissions[1]=(byte)buffer[ISO7816.OFFSET_CDATA+4]; 
-			size[0]=(byte)(byte)buffer[ISO7816.OFFSET_CDATA+7];
-			size[1]=(byte)(byte)buffer[ISO7816.OFFSET_CDATA+6];
-		}			
+			communicationSettings=(byte)buffer[ISO7816.OFFSET_CDATA+3];
+			accessPermissions=new byte[]{(byte)buffer[ISO7816.OFFSET_CDATA+5],(byte)buffer[ISO7816.OFFSET_CDATA+4]};
+			size=new byte[]{(byte)buffer[ISO7816.OFFSET_CDATA+7],(byte)buffer[ISO7816.OFFSET_CDATA+6]};
+		}
+		else{
+			communicationSettings=(byte)buffer[ISO7816.OFFSET_CDATA+1];
+			accessPermissions=new byte[]{(byte)buffer[ISO7816.OFFSET_CDATA+3],(byte)buffer[ISO7816.OFFSET_CDATA+2]};
+			size=new byte[]{(byte)buffer[ISO7816.OFFSET_CDATA+5],(byte)buffer[ISO7816.OFFSET_CDATA+4]};
+		}
+		
+					
 		short sizeS= Util.byteArrayToShort(size);
 		if(sizeS>(short)JCSystem.getAvailableMemory(JCSystem.MEMORY_TYPE_PERSISTENT))ISOException.throwIt(Util.OUT_OF_EEPROM_ERROR);
-		if(selectedDF.hasManageRights(authenticated)==false)ISOException.throwIt(Util.PERMISSION_DENIED);
-		selectedFile=new StandartFile(fileID, masterFile.arrayDF[selectedDF.getFileID()], accessPermissions, sizeS);	
+		selectedFile=new StandartFile(fileID, masterFile.arrayDF[selectedDF.getFileID()], communicationSettings,accessPermissions, sizeS);	
 		selectedDF=masterFile.arrayDF[selectedDF.getFileID()];
 		ISOException.throwIt(Util.OPERATION_OK);
 	}
@@ -580,6 +637,7 @@ public class DesfireCard extends javacard.framework.Applet  implements MultiSele
 		receiveAPDU(apdu, buffer);
 		if(selectedDF.isMasterFile())ISOException.throwIt(Util.PERMISSION_DENIED);
 		byte fileID=(byte)buffer[ISO7816.OFFSET_CDATA];
+		byte communicationSettings=(byte)buffer[ISO7816.OFFSET_CDATA+1];
 		byte[] accessPermissions={(byte)buffer[ISO7816.OFFSET_CDATA+3],(byte)buffer[ISO7816.OFFSET_CDATA+2]};
 		Value lowerLimit= new Value(new byte[]{(byte)buffer[ISO7816.OFFSET_CDATA+7],(byte)buffer[ISO7816.OFFSET_CDATA+6],(byte)buffer[ISO7816.OFFSET_CDATA+5],(byte)buffer[ISO7816.OFFSET_CDATA+4]});
 		Value upperLimit= new Value(new byte[]{(byte)buffer[ISO7816.OFFSET_CDATA+11],(byte)buffer[ISO7816.OFFSET_CDATA+10],(byte)buffer[ISO7816.OFFSET_CDATA+9],(byte)buffer[ISO7816.OFFSET_CDATA+8]});
@@ -590,7 +648,7 @@ public class DesfireCard extends javacard.framework.Applet  implements MultiSele
 		byte limitedCreditEnabled=(byte)buffer[ISO7816.OFFSET_CDATA+16];
 		if((short)(30)>(short)JCSystem.getAvailableMemory(JCSystem.MEMORY_TYPE_PERSISTENT))ISOException.throwIt(Util.OUT_OF_EEPROM_ERROR);
 		if(selectedDF.hasManageRights(authenticated)==false)ISOException.throwIt(Util.PERMISSION_DENIED);
-		selectedFile=new ValueRecord(fileID, masterFile.arrayDF[selectedDF.getFileID()], accessPermissions,lowerLimit,upperLimit,value,limitedCreditEnabled);
+		selectedFile=new ValueRecord(fileID, masterFile.arrayDF[selectedDF.getFileID()], communicationSettings, accessPermissions,lowerLimit,upperLimit,value,limitedCreditEnabled);
 		selectedDF=masterFile.arrayDF[selectedDF.getFileID()];
 		ISOException.throwIt(Util.OPERATION_OK);		
 	}
@@ -608,19 +666,25 @@ public class DesfireCard extends javacard.framework.Applet  implements MultiSele
 		receiveAPDU(apdu, buffer);
 		if(selectedDF.isMasterFile())ISOException.throwIt(Util.PERMISSION_DENIED);
 		byte fileID=(byte)buffer[ISO7816.OFFSET_CDATA];
-		byte[] accessPermissions={(byte)buffer[ISO7816.OFFSET_CDATA+3],(byte)buffer[ISO7816.OFFSET_CDATA+2]};
-		short recordSize= Util.byteArrayToShort(new byte[]{(byte)buffer[ISO7816.OFFSET_CDATA+5],(byte)buffer[ISO7816.OFFSET_CDATA+4]});
-		short maxRecordNum= Util.byteArrayToShort(new byte[]{(byte)buffer[ISO7816.OFFSET_CDATA+8],(byte)buffer[ISO7816.OFFSET_CDATA+7]});
-		if(buffer[ISO7816.OFFSET_LC]==12){
-			accessPermissions[0]=(byte)buffer[ISO7816.OFFSET_CDATA+5];
-			accessPermissions[1]=(byte)buffer[ISO7816.OFFSET_CDATA+4];
+		byte communicationSettings=0;
+		byte[] accessPermissions=new byte[2];
+		short recordSize=0;
+		short maxRecordNum=0;
+		if(buffer[ISO7816.OFFSET_LC]==10){
+			communicationSettings=(byte)buffer[ISO7816.OFFSET_CDATA+1];
+			accessPermissions=new byte[]{(byte)buffer[ISO7816.OFFSET_CDATA+3],(byte)buffer[ISO7816.OFFSET_CDATA+2]};
+			recordSize= Util.byteArrayToShort(new byte[]{(byte)buffer[ISO7816.OFFSET_CDATA+5],(byte)buffer[ISO7816.OFFSET_CDATA+4]});
+			maxRecordNum= Util.byteArrayToShort(new byte[]{(byte)buffer[ISO7816.OFFSET_CDATA+8],(byte)buffer[ISO7816.OFFSET_CDATA+7]});
+		}else if(buffer[ISO7816.OFFSET_LC]==12){
+			communicationSettings=(byte)buffer[ISO7816.OFFSET_CDATA+3];
+			accessPermissions=new byte[]{(byte)buffer[ISO7816.OFFSET_CDATA+5],(byte)buffer[ISO7816.OFFSET_CDATA+4]};
 			recordSize= Util.byteArrayToShort(new byte[]{(byte)buffer[ISO7816.OFFSET_CDATA+7],(byte)buffer[ISO7816.OFFSET_CDATA+6]});
 			maxRecordNum= Util.byteArrayToShort(new byte[]{(byte)buffer[ISO7816.OFFSET_CDATA+10],(byte)buffer[ISO7816.OFFSET_CDATA+9]});
 		}			
 
 		if((short)(recordSize*maxRecordNum)>(short)JCSystem.getAvailableMemory(JCSystem.MEMORY_TYPE_PERSISTENT))ISOException.throwIt(Util.OUT_OF_EEPROM_ERROR);
 		if(selectedDF.hasManageRights(authenticated)==false)ISOException.throwIt(Util.PERMISSION_DENIED);
-		selectedFile=new LinearRecord(fileID, masterFile.arrayDF[selectedDF.getFileID()], accessPermissions,recordSize,maxRecordNum);
+		selectedFile=new LinearRecord(fileID, masterFile.arrayDF[selectedDF.getFileID()], communicationSettings, accessPermissions,recordSize,maxRecordNum);
 		selectedDF=masterFile.arrayDF[selectedDF.getFileID()];
 		ISOException.throwIt(Util.OPERATION_OK);
 	}
@@ -638,18 +702,24 @@ public class DesfireCard extends javacard.framework.Applet  implements MultiSele
 		receiveAPDU(apdu, buffer);
 		if(selectedDF.isMasterFile())ISOException.throwIt(Util.PERMISSION_DENIED);
 		byte fileID=(byte)buffer[ISO7816.OFFSET_CDATA];
-		byte[] accessPermissions={(byte)buffer[ISO7816.OFFSET_CDATA+3],(byte)buffer[ISO7816.OFFSET_CDATA+2]};
-		short recordSize= Util.byteArrayToShort(new byte[]{(byte)buffer[ISO7816.OFFSET_CDATA+5],(byte)buffer[ISO7816.OFFSET_CDATA+4]});
-		short maxRecordNum= Util.byteArrayToShort(new byte[]{(byte)buffer[ISO7816.OFFSET_CDATA+8],(byte)buffer[ISO7816.OFFSET_CDATA+7]});
-		if(buffer[ISO7816.OFFSET_LC]==12){
-			accessPermissions[0]=(byte)buffer[ISO7816.OFFSET_CDATA+5];
-			accessPermissions[1]=(byte)buffer[ISO7816.OFFSET_CDATA+4];
+		byte communicationSettings=0;
+		byte[] accessPermissions=new byte[2];
+		short recordSize=0;
+		short maxRecordNum=0;
+		if(buffer[ISO7816.OFFSET_LC]==10){
+			communicationSettings=(byte)buffer[ISO7816.OFFSET_CDATA+1];
+			accessPermissions=new byte[]{(byte)buffer[ISO7816.OFFSET_CDATA+3],(byte)buffer[ISO7816.OFFSET_CDATA+2]};
+			recordSize= Util.byteArrayToShort(new byte[]{(byte)buffer[ISO7816.OFFSET_CDATA+5],(byte)buffer[ISO7816.OFFSET_CDATA+4]});
+			maxRecordNum= Util.byteArrayToShort(new byte[]{(byte)buffer[ISO7816.OFFSET_CDATA+8],(byte)buffer[ISO7816.OFFSET_CDATA+7]});
+		}else if(buffer[ISO7816.OFFSET_LC]==12){
+			communicationSettings=(byte)buffer[ISO7816.OFFSET_CDATA+3];
+			accessPermissions=new byte[]{(byte)buffer[ISO7816.OFFSET_CDATA+5],(byte)buffer[ISO7816.OFFSET_CDATA+4]};
 			recordSize= Util.byteArrayToShort(new byte[]{(byte)buffer[ISO7816.OFFSET_CDATA+7],(byte)buffer[ISO7816.OFFSET_CDATA+6]});
 			maxRecordNum= Util.byteArrayToShort(new byte[]{(byte)buffer[ISO7816.OFFSET_CDATA+10],(byte)buffer[ISO7816.OFFSET_CDATA+9]});
-		}			
+		}
 		if((short)(recordSize*maxRecordNum)>(short)JCSystem.getAvailableMemory(JCSystem.MEMORY_TYPE_PERSISTENT))ISOException.throwIt(Util.OUT_OF_EEPROM_ERROR);
 		if(selectedDF.hasManageRights(authenticated)==false)ISOException.throwIt(Util.PERMISSION_DENIED);
-		selectedFile=new CyclicRecord(fileID, masterFile.arrayDF[selectedDF.getFileID()], accessPermissions,recordSize,maxRecordNum);
+		selectedFile=new CyclicRecord(fileID, masterFile.arrayDF[selectedDF.getFileID()], communicationSettings, accessPermissions,recordSize,maxRecordNum);
 		selectedDF=masterFile.arrayDF[selectedDF.getFileID()];
 		ISOException.throwIt(Util.OPERATION_OK);	
 	}
@@ -884,6 +954,8 @@ public class DesfireCard extends javacard.framework.Applet  implements MultiSele
 	 * 			message (59 bytes) the data field is splitted. If more thata will
 	 * 			be sent the PICC informs with the SW: 0xAF
 	 */
+	
+	//USAR LOS NUEVOS METODOS IMPLEMENTADOS PARA REALIZARLO DE UNA MANERA MÁS ELEGANTE
 	private void readRecords(APDU apdu, byte[] buffer){
 		
 		receiveAPDU(apdu, buffer);
@@ -920,7 +992,7 @@ public class DesfireCard extends javacard.framework.Applet  implements MultiSele
 				}
 				
 				bytesLeft=(short)(length*((CyclicRecord)file).recordSize);
-				offset=(short)(((CyclicRecord)file).getCurrentSize()-offset*((CyclicRecord)file).recordSize-bytesLeft);//offset respecto al inicio
+				offset=(short)(((CyclicRecord)file).getNextToWrite()-offset*((CyclicRecord)file).recordSize-bytesLeft);//offset respecto al inicio
 				if(bytesLeft<=59){
 					out=((CyclicRecord)file).readData(offset, bytesLeft, (byte) 0);
 					offset=0;
@@ -1006,7 +1078,7 @@ public class DesfireCard extends javacard.framework.Applet  implements MultiSele
 	private void commitTransaction(APDU apdu, byte[] buffer){
 		
 		for (byte i = 0; i < 32; i++) {
-			if(selectedDF.waitingForTransaction[i]==true){
+			if(selectedDF.getWaitingForTransaction(i)==true){
 				//if(directoryFile.getFile(i)instanceof BackupDataFile){
 					//FALTA
 				//}
@@ -1036,7 +1108,7 @@ public class DesfireCard extends javacard.framework.Applet  implements MultiSele
 	 */
 	private void abortTransaction(APDU apdu,byte[] buffer){
 		for (byte i = 0; i < 32; i++) {
-			if(selectedDF.waitingForTransaction[i]==true){
+			if(selectedDF.getWaitingForTransaction(i)==true){
 //				if(directoryFile.getFile(i) instanceof BackupDataFile){
 //					//FALTA
 //				}
@@ -1257,6 +1329,73 @@ public class DesfireCard extends javacard.framework.Applet  implements MultiSele
 		dataBuffer=null;
 		securityLevel=Util.PLAIN_COMMUNICATION;
 		sessionKey.clearKey();	
+	}
+	
+	/**
+	 * 		Decrypts the key data for some commands that require this particular
+	 * 	security mechanism
+	 * 
+	 * 	@note	If the key number to change is different from the key used for authentication,
+	 * 			it is needed to prove that the other key is also known so the PCD has to:
+	 * 				- bit-wise XOR both new and old key
+	 * 				- calculate CRC16 over the XOred data and append it to the end
+	 * 
+	 * 	@note 	The key to be change is enciphered by the PCD in the next way:
+	 * 				- append at the end the CRC16 calculated over the new key
+	 * 				- Do the paddingto reach an adequate frame size
+	 * 				- Encipher using he current session key
+	 * 				- The blocks are chained in CRC send mode.
+	 */
+	public byte[] decryptEncipheredKeyData(byte[] encipheredData, byte keyN){
+		byte[] data=new byte[encipheredData.length];
+		if(keyN==keyNumberToAuthenticate){
+			return decrypt16(encipheredData, sessionKey);
+		} else{
+			//Decrypt
+			byte[] unpaddedData=new byte[encipheredData.length];
+			cipher.init(sessionKey, Cipher.MODE_DECRYPT);
+			cipher.doFinal(encipheredData,(short) 0,(short)encipheredData.length, unpaddedData, (short)0);
+			//Padding out
+			
+			data=Util.removePadding(unpaddedData);
+			//Checks CRC
+			byte[] receivedNewKeyCrc=Util.subByteArray(data, (byte)(data.length-2),(byte) (data.length-1));
+			byte[] receivedXORCrc=Util.subByteArray(data, (byte)(data.length-4),(byte) (data.length-3));
+			data=Util.subByteArray(data,(byte) 0, (byte)(data.length-5));
+			byte[] XORCrc=Util.crc16(data);
+			if(Util.byteArrayCompare(XORCrc,receivedXORCrc)==false){
+				//We check if there was no padding
+				receivedXORCrc=Util.subByteArray(unpaddedData,(byte)(unpaddedData.length-4),(byte) (unpaddedData.length-3));
+				data=Util.subByteArray(unpaddedData,(byte) 0, (byte)(unpaddedData.length-5));
+				XORCrc=Util.crc16(data);
+				if(Util.byteArrayCompare(XORCrc,receivedXORCrc)==false){
+					securityLevel=Util.PLAIN_COMMUNICATION;
+					ISOException.throwIt(Util.INTEGRITY_ERROR);
+				}	
+			}
+			
+			//The new key is obtained
+			byte[] oldKey=new byte[16];
+			((DESKey)selectedDF.getKey(keyN)).getKey(oldKey, (short)0);
+			byte[] newKey=Util.xorByteArray(data,oldKey);
+			
+			//Check the CRC of the new key
+			byte[] newKeyCrc=Util.crc16(newKey);
+			if(Util.byteArrayCompare(newKeyCrc,receivedNewKeyCrc)==false){
+				//We check if there was no padding
+				receivedNewKeyCrc=Util.subByteArray(unpaddedData,(byte)(unpaddedData.length-2),(byte) (unpaddedData.length-1));
+				data=Util.subByteArray(unpaddedData,(byte) 0, (byte)(unpaddedData.length-3));
+				newKey=Util.xorByteArray(data,oldKey);
+				newKeyCrc=Util.crc16(newKey);
+				if(Util.byteArrayCompare(newKeyCrc,receivedNewKeyCrc)==false){
+					securityLevel=Util.PLAIN_COMMUNICATION;
+					ISOException.throwIt(Util.INTEGRITY_ERROR);
+				}	
+			}
+			
+			//If no exception is thrown the new key is returned
+			return newKey;
+		}		
 	}
 	
 }
