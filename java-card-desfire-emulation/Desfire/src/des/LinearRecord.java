@@ -176,8 +176,8 @@ public class LinearRecord extends File {
 	 */
 	public byte[] readRecord(byte backPosition){
 		byte[] bytesRead=new byte[recordSize];
-		for (int i = 0; i < bytesRead.length; i++) {
-			bytesRead[i]=data[(short)(size-backPosition)*recordSize];
+		for (short i = 0; i < bytesRead.length; i++) {
+			bytesRead[i]=data[(short)((size-backPosition)*recordSize)];
 		}
 		return bytesRead;
 	}

@@ -173,11 +173,11 @@ public class CyclicRecord extends File{
 	 */
 	public byte[] readRecord(byte backPosition){
 		byte[] bytesRead=new byte[recordSize];
-		for (int i = 0; i < bytesRead.length; i++) {
+		for (short i = 0; i < bytesRead.length; i++) {
 			if(backPosition>nextToWrite){
-				bytesRead[i]=data[(short)(maxSize-(backPosition-nextToWrite))*recordSize];
+				bytesRead[i]=data[(short)((maxSize-(backPosition-nextToWrite))*recordSize)];
 			}
-			bytesRead[i]=data[(short)(nextToWrite-backPosition)*recordSize];
+			bytesRead[i]=data[(short)((nextToWrite-backPosition)*recordSize)];
 		}
 		return bytesRead;
 	}
