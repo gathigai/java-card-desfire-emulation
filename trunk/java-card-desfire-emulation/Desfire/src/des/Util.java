@@ -25,6 +25,7 @@ public class Util {
 	public final static byte GET_FILE_SETTINGS=(byte)0xF5;
 	public final static byte CHANGE_FILE_SETTINGS=(byte)0x5F;
 	public final static byte CREATE_STDDATAFILE = (byte) 0xCD;//
+	public final static byte CREATE_BACKUPDATAFILE = (byte) 0xCB;//
 	public final static byte CREATE_VALUE_FILE=(byte) 0xCC;//
 	public final static byte CREATE_LINEAR_RECORD_FILE=(byte)0xC1;//
 	public final static byte CREATE_CYCLIC_RECORD_FILE=(byte)0xC0;//
@@ -301,7 +302,7 @@ public class Util {
 	
 	public static byte[] getZeroArray(short length){
 		byte[] zeroArray=new byte[length];
-		for (int i = 0; i < zeroArray.length; i++) {
+		for (short i = 0; i < zeroArray.length; i++) {
 			zeroArray[i]=0;	
 		}
 		return zeroArray;

@@ -17,7 +17,11 @@ public abstract class File {
 	private byte[] permissions;	
 	
 	/**
-	 * Sets the security level of this file in particular
+	 * 	Sets the security level of this file in particular
+	 * 
+	 * 	@note	The file's security level has priority over the card's security level.
+	 *  		So if the card's security level is enciphered and the file access is free
+	 *  		then the data readed is not enciphered. 
 	 */
 	
 	private byte communicationSettings;
@@ -46,8 +50,14 @@ public abstract class File {
 	public File(byte fid,DirectoryFile parentFile, byte communicationSettings,byte[]permissions){
 		this.parentFile=parentFile;
 		this.fileID = fid;
-		this.communicationSettings=communicationSettings;
+		setCommunicationSettings(communicationSettings);
 		this.permissions=permissions;
+	}
+	
+	private void setCommunicationSettings(byte cs){
+		if((cs&(byte)0x01)==(byte)0x00)this.communicationSettings=Util.PLAIN_COMMUNICATION;
+		if((cs&(byte)0x11)==(byte)0x01)this.communicationSettings=Util.PLAIN_COMMUNICATION_MAC;
+		if((cs&(byte)0x11)==(byte)0x11)this.communicationSettings=Util.FULLY_ENCRYPTED;
 	}
 	
 	public byte getFileID() {

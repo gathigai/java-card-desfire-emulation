@@ -92,7 +92,11 @@ public class DirectoryFile extends File {
 			return null;
 		}
 	}
-	
+	/** 
+	 * 	Checks if the file with the given file number exists
+	 * 
+	 * 	@return		True if it is activated already
+	 */
 	public boolean isValidFileNumber(byte fileN){
 		return activatedFiles[fileN];
 	}
