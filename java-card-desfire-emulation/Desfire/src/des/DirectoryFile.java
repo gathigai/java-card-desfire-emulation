@@ -13,9 +13,8 @@ public class DirectoryFile extends File {
 	private byte[] AID;
 	private static final byte MAX_FILES = 32;
 	public boolean[] activatedFiles=new boolean[32];
-	public boolean[] waitingForTransaction=new boolean[32];
+	private boolean[] waitingForTransaction=new boolean[32];
 	private File[] arrayFiles = new File[MAX_FILES];
-	protected byte[] permissions = {(byte) 0x00 ,(byte) 0x00};//Temporal
 	private Key[] keyList;
 	private byte numberFiles = 0;
 	private Key masterKey;
@@ -56,8 +55,8 @@ public class DirectoryFile extends File {
 	/**
 	 * Constructor for the applications
 	 */
-	protected DirectoryFile(byte fid,byte[] keySettings) {
-		super(fid);//llama al constructor de la clase File
+	protected DirectoryFile(byte fid, byte[] keySettings, DirectoryFile parent) {
+		super(fid,parent);//llama al constructor de la clase File
 		changeKeySettings(keySettings[0]);
 		keyType=(byte) (keySettings[1]>>6);
 		maxKeyNumber=(byte) (keySettings[1]&(byte)0x0F);
@@ -78,7 +77,7 @@ public class DirectoryFile extends File {
 		keyType=Util.TDES;
 		DESKey newKey=(DESKey)KeyBuilder.buildKey(KeyBuilder.TYPE_DES, KeyBuilder.LENGTH_DES3_2KEY, false);
 		newKey.clearKey();
-		newKey.setKey(Util.DEFAULT_MASTER_KEY, (byte)0);
+		newKey.setKey(((MasterFile)getParent()).getDefaultKey(), (byte)0);
 		keyList[0]=newKey;//Application Master Key
 	}
 	public void setAID(byte[] AID){
@@ -89,9 +88,13 @@ public class DirectoryFile extends File {
 	}
 	public File getFile(byte fid) {
 		if(activatedFiles[fid]==true) return(arrayFiles[fid]);
-		else {ISOException.throwIt((short)0x91F0);//File not found
+		else {ISOException.throwIt((short)Util.FILE_NOT_FOUND);//File not found
 			return null;
 		}
+	}
+	
+	public boolean isValidFileNumber(byte fileN){
+		return activatedFiles[fileN];
 	}
 	public void updateFile(File update, byte fileID){
 		arrayFiles[fileID]=update;
@@ -241,5 +244,15 @@ public class DirectoryFile extends File {
 		if(keyNumber>=maxKeyNumber) return false;//No Such Key
 		else if(keyList[keyNumber]==null) return false;//No Such Key
 		return true;		
+	}
+	
+	public void setWaitForTransaction(byte fileNumber){
+		waitingForTransaction[fileNumber]=true;
+	}
+	public void resetWaitForTransaction(byte fileNumber){
+		waitingForTransaction[fileNumber]=false;
+	}
+	public boolean getWaitingForTransaction(byte fileNumber){
+		return waitingForTransaction[fileNumber];
 	}
 }

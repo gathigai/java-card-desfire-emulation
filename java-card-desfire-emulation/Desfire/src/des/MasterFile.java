@@ -31,22 +31,32 @@ public class MasterFile extends DirectoryFile {
 	 */
 	DirectoryFile[] arrayDF;
 	
+	/**
+	 * Default key to wich all new keys will be initialized 
+	 */
+	byte[] defaultKeyBytes;
+	
 	
 	public MasterFile() {
 		// file identifier of MasterFile is hard coded to 3F00
 		super(MF_FID);
 		numApp=1;//El 0 es el IndexDF
-		indexDF=new IndexFile((byte) 0x00, this ,this.permissions,(short)3,(short)28);
+		indexDF=new IndexFile((byte) 0x00, this,(short)3,(short)28);
 		byte[] AID={(byte)0xF4,(byte)0x01,(byte)0x10};
 		indexDF.writeRecord((short)0,AID);
 		arrayDF=new DirectoryFile[28];
+		defaultKeyBytes=Util.DEFAULT_MASTER_KEY;
+	}
+	
+	public byte[] getDefaultKey(){
+		return defaultKeyBytes;
 	}
 	public byte addDF(byte[] AID, byte[] keySettings){
 		
 		if(searchAID(AID)!=(byte)-1)ISOException.throwIt(Util.DUPLICATE_ERROR);//AID repetida
 		if(numApp==27)ISOException.throwIt((short)0x91CE);//Num App excede las 28
 		indexDF.writeRecord(numApp,AID);
-		arrayDF[numApp]=new DirectoryFile(numApp,keySettings);
+		arrayDF[numApp]=new DirectoryFile(numApp,keySettings,this);
 		numApp++;
 		return (byte)(numApp-1);
 	}
@@ -59,6 +69,11 @@ public class MasterFile extends DirectoryFile {
 		indexDF.deleteRecord(ID);
 	}
 	
+	/**
+	 * 	Search the AID and returns the internal index of the directory file
+	 * 
+	 * 	@return 	"-1" if the AID is not found
+	 */
 	public byte searchAID(byte[] AID){
 		for (byte i = 0; i < indexDF.size; i++) {
 			if(javacard.framework.Util.arrayCompare(AID, (short)0, indexDF.readValue(i),(short)0,(short)3)==0)return(i);			
@@ -115,5 +130,9 @@ public class MasterFile extends DirectoryFile {
 				deleteDF(getAID(i));
 			}
 		}
+	}
+	
+	public void setDefaultKey(byte[] newDefaultKeyBytes){
+		defaultKeyBytes=newDefaultKeyBytes;
 	}
 }
