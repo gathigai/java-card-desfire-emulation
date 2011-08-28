@@ -136,7 +136,7 @@ public class LinearRecord extends File {
 	 * 			the oldest records is overwritten with the new one
 	 */
 	public void commitTransaction(){
-		getParent().resetWaitingForTransaction();
+		getParent().resetWaitingForTransaction();//notifies to the DF there are not transactions waiting anymore
 		if(waitingToClearFile==true){
 			waitingToClearFile=false;
 			deleteRecords();

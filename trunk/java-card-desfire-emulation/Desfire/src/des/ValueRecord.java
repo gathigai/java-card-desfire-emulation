@@ -44,6 +44,7 @@ public class ValueRecord extends File {
 	
 	public ValueRecord(byte fid, DirectoryFile parent,byte communicationSettings,byte[] accessPermissions, Value lowerLimit,Value upperLimit,Value value,byte limitedCreditEnabled) {
 		super(fid,parent,communicationSettings,accessPermissions);
+		setSize((byte) 4);
 		this.upperLimit =upperLimit;
 		this.lowerLimit = lowerLimit;
 		this.value=value;
@@ -53,13 +54,6 @@ public class ValueRecord extends File {
 		else this.freeGetValueEnabled=false;
 		this.uncommitedValue=this.value;
 		parent.addFile(this);
-	}
-	
-	/**
-	 * Returns the byte size of a value, wich is 4
-	 */
-	public short getCurrentSize() {
-		return 4;
 	}
 	
 	public Value getValue() {

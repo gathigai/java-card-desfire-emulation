@@ -130,7 +130,7 @@ public class DirectoryFile extends File {
 	}
 	public void changeKey(byte keyNumber, byte[] keyBytes){
 		if(keyNumber>=maxKeyNumber) ISOException.throwIt(Util.NO_SUCH_KEY);//No Such Key
-		if(this.getFileID()==(byte)0x00){ //Si es Master File
+		if(this.isMasterFile()==true){ //Si es Master File
 			//Segun el keyNumber se decide el tipo de clave que tenemos. 
 			//FALTA
 			
