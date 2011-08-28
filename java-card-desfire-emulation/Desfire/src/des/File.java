@@ -3,8 +3,10 @@ package des;
 public abstract class File {
 	private byte fileID;
 	
-	// current size of data stored in file
-	private byte size;
+	/**
+	 * Current size of the data in the file
+	 */
+		private short size;
 	
 	/**
 	 * 	Link to the parent file
@@ -56,8 +58,8 @@ public abstract class File {
 	
 	private void setCommunicationSettings(byte cs){
 		if((cs&(byte)0x01)==(byte)0x00)this.communicationSettings=Util.PLAIN_COMMUNICATION;
-		if((cs&(byte)0x11)==(byte)0x01)this.communicationSettings=Util.PLAIN_COMMUNICATION_MAC;
-		if((cs&(byte)0x11)==(byte)0x11)this.communicationSettings=Util.FULLY_ENCRYPTED;
+		if((cs&(byte)0x03)==(byte)0x01)this.communicationSettings=Util.PLAIN_COMMUNICATION_MAC;
+		if((cs&(byte)0x03)==(byte)0x03)this.communicationSettings=Util.FULLY_ENCRYPTED;
 	}
 	
 	public byte getFileID() {
@@ -66,11 +68,11 @@ public abstract class File {
 	public byte getCommunicationSettings(){
 		return communicationSettings;
 	}
-	public byte getSize(){
+	public short getSize(){
 		return size;
 	}
-	public void setSize(byte size){
-		this.size=size;
+	public void setSize(short s){
+		this.size=s;
 	}
 	public DirectoryFile getParent() {
 		return parentFile;

@@ -103,6 +103,10 @@ public class Util {
 	 //New Errors
 	 public final static short WRONG_VALUE_ERROR=(short)0x916E;
 	 
+	 //Others
+	 public final static byte MAX_DATA_SIZE=100;//MEJORAR ESTE VALOR  
+	 											//FALTA
+	 
 	 public static byte[] rotateLeft(byte[] c){
 		 byte[] c1=new byte[c.length];
 		 c1[(byte)(c.length-1)]=c[0];
@@ -236,10 +240,10 @@ public class Util {
 	 * 			Index of the last byte copied to the subarray
 	 * @return
 	 */
-	public static byte[] subByteArray(byte[]input,byte inputInit,byte inputEnd){
+	public static byte[] subByteArray(byte[]input,short inputInit,short inputEnd){
 		byte[] result=new byte[(byte)(inputEnd-inputInit+1)];
-		for (byte i = inputInit; i <= inputEnd; i++) {
-			result[(byte)(i-inputInit)]=input[i];
+		for (short i = inputInit; i <= inputEnd; i++) {
+			result[(short)(i-inputInit)]=input[i];
 		}
 		return result;
 	}

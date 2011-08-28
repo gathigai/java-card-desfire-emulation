@@ -9,20 +9,8 @@ public class StandartFile extends File {
 	/**
 	 * Data stored in the file
 	 */
-	private byte[] data;
-	
-	
-//	/**
-//	 * 	Constructor providing the data stored in the file
-//	 * 
-//	 */
-//	public StandartFile(byte fid, DirectoryFile parent,byte[] accessPermissions, byte[] data) {
-//		super(fid,parent,accessPermissions);
-//		this.data = data;
-//		setSize((byte) data.length);
-//		parent.addFile(this);
-//	}
-	
+	protected byte[] data;
+		
 	/**
 	 * Constructor for an empty file setting  the maximum size
 	 * 
@@ -30,7 +18,7 @@ public class StandartFile extends File {
 	public StandartFile(byte fid, DirectoryFile parent,byte communicationSettings,byte[] accessPermissions, short maxSize) {
 		super(fid,parent,communicationSettings,accessPermissions);	
 		data = new byte[maxSize];
-		setSize((byte) 0);
+		setSize((short) 0);
 		parent.addFile(this);
 	}
 	
@@ -45,10 +33,10 @@ public class StandartFile extends File {
 	/**
 	 * 	Read an array from the file 
 	 */
-	public byte[] readArray(short offset, short length, byte offsetOut){
+	public byte[] readArray(short offset, short length, short s){
 		byte[] bytesRead=new byte[length];
 		for (short i = 0; i < length; i++) {
-			bytesRead[(short)(offsetOut+i)]=data[(short)(offset+i)];				
+			bytesRead[(short)(s+i)]=data[(short)(offset+i)];				
 		}
 		return(bytesRead);
 	}
@@ -61,7 +49,7 @@ public class StandartFile extends File {
 		for (short i = 0; i < length; i++) {
 			this.data[(short)(offset+i)]=data[i];				
 		}
-		setSize((byte) Util.max(getSize(),(short) (offset+length)));
+		setSize(Util.max(getSize(),(short) (offset+length)));
 	}
 	
 }

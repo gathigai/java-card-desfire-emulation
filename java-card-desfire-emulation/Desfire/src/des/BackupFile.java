@@ -4,22 +4,22 @@ import des.File;
 import javacard.framework.ISO7816;
 import javacard.framework.ISOException;
 
-public class BackupFile extends File {
+public class BackupFile extends StandartFile {
 
 	/**
-	 * Data stored in the file
+	 * Temporary data stored in the file
 	 */
-	private byte[] data;
+	private byte[] uncommitedData;
+	
+	private short uncommitedSize;
 		
 	/**
 	 * Constructor for an empty file setting  the maximum size
 	 * 
 	 */
 	public BackupFile(byte fid, DirectoryFile parent,byte communicationSettings,byte[] accessPermissions, short maxSize) {
-		super(fid,parent,communicationSettings,accessPermissions);	
-		data = new byte[maxSize];
-		setSize((byte) 0);
-		parent.addFile(this);
+		super(fid,parent,communicationSettings,accessPermissions,maxSize);
+		uncommitedData=this.data;
 	}
 	
 	public byte[] getData() {
@@ -30,27 +30,46 @@ public class BackupFile extends File {
 		return (short) data.length;
 	}
 	
-	/**
-	 * 	Read an array from the file 
-	 */
-	public byte[] readArray(short offset, short length, byte offsetOut){
-		byte[] bytesRead=new byte[length];
-		for (short i = 0; i < length; i++) {
-			bytesRead[(short)(offsetOut+i)]=data[(short)(offset+i)];				
-		}
-		return(bytesRead);
+	public short getUncommitedSize(){
+		return uncommitedSize;
+	}
+	
+	public void setUncommitedSize(short newUncommitedSize){
+		this.uncommitedSize=newUncommitedSize;
 	}
 	
 	/**
-	 * 	Write an array in the file
+	 * 	Write an array in the temporary file
 	 */
 	public void writeArray(byte[] data, short offset, short length){
+		if((short)(offset+length)>getMaxSize()) ISOException.throwIt(Util.BOUNDARY_ERROR);
+		getParent().setWaitingForTransaction();
 		
+		//copy new data in temporal file
 		for (short i = 0; i < length; i++) {
-			this.data[(short)(offset+i)]=data[i];				
+			this.uncommitedData[(short)(offset+i)]=data[i];				
 		}
-		setSize((byte) Util.max(getSize(),(short) (offset+length)));
+		setUncommitedSize(Util.max(getUncommitedSize(),(short) (offset+length)));
 	}
 	
+	/**
+	 * 	Last uncommited write operations take place
+	 */
+	public void commitTransaction(){
+		getParent().resetWaitingForTransaction();//notifies to the DF there are not transactions waiting anymore 
+		this.data=uncommitedData;
+		setSize(getUncommitedSize());
+	}
+	
+	/** 
+	 * 		Last uncommited write operations are cancelled and the uncommited record
+	 * 	is reset to the current data of the file 
+	 * 		
+	 */
+	public void abortTransaction(){
+		getParent().resetWaitingForTransaction();//notifies to the DF there are not transactions waiting anymore
+		this.uncommitedData=getData();
+		setUncommitedSize(getSize());
+	}
 }
 	
