@@ -1,0 +1,2 @@
+Within this project we developed a Java Card emulator for the Mifare DESFire contactless cards such that contactless Java Cards can be used in DESFire-based systems.
+Moreover, we developed java code to manage both this emulation and real DESFire cards.
